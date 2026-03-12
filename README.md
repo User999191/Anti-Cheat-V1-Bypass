@@ -1,4 +1,4 @@
--- those function are Commonly But Bypasses Any Type Of Kicks Except Other Not Sure I'll add other Like if cframe or BodyGyro and then tries kick then it preventing it
+-- added cframe / Excessive Lag Bypass
 
 local function createAntiKick()
     local Players = game:GetService("Players")
@@ -7,9 +7,11 @@ local function createAntiKick()
     local SS = game:GetService("ServerScriptService")
     
     local config = {
-        cooldownBase = 0.25,
-        cooldownJitter = 0.01,
-        adonisNames = {"Adonis", "Adonis_Main", "Adonis_Client", "AdonisData", "Adonis_"}
+        cooldownBase = 0.35,
+        cooldownJitter = 0.03,
+        adonisNames = {"Adonis", "Adonis_Main", "Adonis_Client", "AdonisData", "Adonis_"},
+        maxCFrameDistPerSec = 150,
+        checkInterval = 0.4
     }
     
     workspace:WaitForChild("Terrain", 15)
@@ -32,7 +34,11 @@ local function createAntiKick()
         return function() end
     end
     
-    local state = {lastKickAttempt = 0}
+    local state = {
+        lastKickAttempt = 0,
+        lastPos = nil,
+        lastPosTime = 0
+    }
     
     local function isOnCooldown()
         local now = tick()
@@ -54,11 +60,38 @@ local function createAntiKick()
         return false
     end
     
+    local function checkSpeedJumpCFrame()
+        if not lp.Character then return false end
+        local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
+        local hum = lp.Character:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum then return false end
+        
+        local now = tick()
+        
+        if hum.WalkSpeed > 500 or hum.JumpPower > 500 then
+            return true
+        end
+        
+        if state.lastPos and now - state.lastPosTime < 1.5 then
+            local dist = (hrp.Position - state.lastPos).Magnitude
+            local timeDiff = now - state.lastPosTime
+            local speed = dist / timeDiff
+            if speed > config.maxCFrameDistPerSec then
+                return true
+            end
+        end
+        
+        state.lastPos = hrp.Position
+        state.lastPosTime = now
+        return false
+    end
+    
     spawn(function()
         while true do
-            task.wait(0.8)
-            if checkSuspiciousHRP() then
-                if isOnCooldown() then continue end
+            task.wait(config.checkInterval)
+            if checkSuspiciousHRP() or checkSpeedJumpCFrame() then
+                if not isOnCooldown() then
+                end
             end
         end
     end)
